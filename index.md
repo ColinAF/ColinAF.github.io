@@ -1,10 +1,12 @@
-## Hello There Welcome to my portfolio!
+# Hello There Welcome to my portfolio!
 
-# Projects
+## Projects
 
-# About Me
+## About Me
 
-# Etc
+## How to get in thouch
+
+## Etc
 
 <!---
 
