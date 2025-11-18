@@ -2,10 +2,14 @@ body {
 	background-color: #121212;
 	color: #e0e0e0;
 	font-family: sans-serif;
-	margin:1em auto;
-	max-width:40em;
-	padding:0.62em;
-	font:1.2em/1.62 sans-serif
+	margin: 1em auto;
+	max-width: 40em;
+	padding: 0.62em;
+	font: 1.2em/1.62 sans-serif;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
 }
 
 table {
@@ -14,7 +18,8 @@ table {
 	margin-bottom: 2em;
 }
 
-th, td {
+th,
+td {
 	border: 1px solid #444;
 	text-align: center;
 	padding: 0.5em;
@@ -38,3 +43,17 @@ footer {
 	text-align: right;
 }
 
+
+button {
+	padding: 0.4rem 0.9rem;
+	font-size: 0.95rem;
+	border: 1px solid #555;
+	background: #222;
+	color: #eee;
+	cursor: pointer;
+	border-radius: 0.25rem;
+}
+
+button:active {
+	background: #333;
+}

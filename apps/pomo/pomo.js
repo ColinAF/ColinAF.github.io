@@ -1,0 +1,197 @@
+// =========================
+// Timer configuration
+// =========================
+const WORK_MIN = 50;
+const BREAK_MIN = 10;
+
+let isWorkMode = true;                 // true = Work, false = Break
+let remainingSeconds = WORK_MIN * 60;
+let timerId = null;
+let isRunning = false;
+let workCount = 0;
+
+const modeEl = document.getElementById("mode");
+const timerEl = document.getElementById("timer");
+const counterEl = document.getElementById("counter");
+const startPauseBtn = document.getElementById("startPauseBtn");
+const resetBtn = document.getElementById("resetBtn");
+
+function formatTime(sec) {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function updateTimerUI() {
+    timerEl.textContent = formatTime(remainingSeconds);
+    modeEl.textContent = isWorkMode ? "Work" : "Break";
+    startPauseBtn.textContent = isRunning ? "Pause" : "Start";
+    counterEl.textContent = `Completed Sessions: ${workCount}`;
+}
+
+function switchMode() {
+    // We are finishing the current mode
+    const finishedWork = isWorkMode;
+    playSound(finishedWork);
+
+    if (finishedWork) {
+        workCount += 1;
+    }
+
+    isWorkMode = !isWorkMode;
+    remainingSeconds = (isWorkMode ? WORK_MIN : BREAK_MIN) * 60;
+    updateTimerUI();
+}
+
+function tick() {
+    if (remainingSeconds > 0) {
+        remainingSeconds -= 1;
+        updateTimerUI();
+    } else {
+        switchMode();
+    }
+}
+
+function startTimer() {
+    if (isRunning) return;
+    getAudioCtx().resume(); // required after user interaction
+    isRunning = true;
+    timerId = setInterval(tick, 1000);
+    updateTimerUI();
+}
+
+function pauseTimer() {
+    if (!isRunning) return;
+    isRunning = false;
+    clearInterval(timerId);
+    timerId = null;
+    updateTimerUI();
+}
+
+function resetTimer() {
+    isRunning = false;
+    clearInterval(timerId);
+    timerId = null;
+
+    isWorkMode = true;
+    remainingSeconds = WORK_MIN * 60;
+    workCount = 0;
+
+    updateTimerUI();
+}
+
+startPauseBtn.addEventListener("click", () => {
+    isRunning ? pauseTimer() : startTimer();
+});
+
+resetBtn.addEventListener("click", resetTimer);
+
+updateTimerUI();
+
+// =========================
+// Synth configuration
+// =========================
+// Replace these with the parameters you dialed in earlier.
+// (You can also make BREAK_SOUND different if you want.)
+const WORK_SOUND = {
+    oscillators: [
+        { waveform: "sine", frequency: 523, detune: 9, level: 0.30 },
+        { waveform: "sine", frequency: 130, detune: -9, level: 0.75 },
+        { waveform: "triangle", frequency: 784, detune: 2, level: 0.30 },
+    ],
+    env: {
+        attack: 0.12,
+        decay: 0.14,
+        sustain: 0.33,
+        release: 1.00,
+    },
+    filter: {
+        cutoff: 1856,
+        resonance: 6.2,
+    },
+};
+
+const BREAK_SOUND = {
+    oscillators: [
+        { waveform: "sine", frequency: 523, detune: 9, level: 0.30 },
+        { waveform: "sine", frequency: 130, detune: -9, level: 0.75 },
+        { waveform: "triangle", frequency: 784, detune: 2, level: 0.30 },
+    ],
+    env: {
+        attack: 0.12,
+        decay: 0.14,
+        sustain: 0.33,
+        release: 1.00,
+    },
+    filter: {
+        cutoff: 1856,
+        resonance: 6.2,
+    },
+};
+
+// =========================
+// Web Audio 3-osc synth
+// =========================
+let audioCtx = null;
+
+function getAudioCtx() {
+    if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AC();
+    }
+    return audioCtx;
+}
+
+function playSynthDing(params) {
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+
+    const { env, filter, oscillators } = params;
+    if (!oscillators.some(o => o.level > 0 && o.enabled !== false)) return;
+
+    const filterNode = ctx.createBiquadFilter();
+    filterNode.type = "lowpass";
+    filterNode.frequency.setValueAtTime(filter.cutoff, now);
+    filterNode.Q.setValueAtTime(filter.resonance, now);
+
+    const envGain = ctx.createGain();
+    envGain.gain.setValueAtTime(0.0, now);
+
+    const attackEnd = now + env.attack;
+    const decayEnd = attackEnd + env.decay;
+    const releaseEnd = decayEnd + env.release + 0.001;
+
+    envGain.gain.linearRampToValueAtTime(1.0, attackEnd);
+    envGain.gain.linearRampToValueAtTime(env.sustain, decayEnd);
+    envGain.gain.setValueAtTime(env.sustain, decayEnd);
+    envGain.gain.linearRampToValueAtTime(0.0, releaseEnd);
+
+    filterNode.connect(envGain);
+    envGain.connect(ctx.destination);
+
+    for (const oscCfg of oscillators) {
+        if (oscCfg.level <= 0 || oscCfg.enabled === false) continue;
+
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = oscCfg.waveform;
+        osc.frequency.setValueAtTime(oscCfg.frequency, now);
+        osc.detune.setValueAtTime(oscCfg.detune || 0, now);
+
+        gain.gain.setValueAtTime(oscCfg.level, now);
+
+        osc.connect(gain);
+        gain.connect(filterNode);
+
+        osc.start(now);
+        osc.stop(releaseEnd);
+    }
+}
+
+// High-level wrapper the timer calls
+function playSound(finishedWork) {
+    const params = finishedWork ? WORK_SOUND : BREAK_SOUND;
+    getAudioCtx().resume();
+    playSynthDing(params);
+}
